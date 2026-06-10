@@ -54,6 +54,30 @@ postpilot/
 │   ├── package.json
 │   └── vite.config.ts
 
-done
 ```
+
+## Backend Setup
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+# edit .env with your MySQL connection string and JWT secret
+npx prisma migrate dev --name init
+npm run dev
+```
+
+The API runs on `http://localhost:5000/api` by default.
+
+## Frontend Setup
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+# edit .env if your backend runs on a different URL
+npm run dev
+```
+
+The app runs on `http://localhost:5173`.
 

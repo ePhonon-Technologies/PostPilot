@@ -9,5 +9,78 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      Role @default(USER)
+  providerName  Provider
+  profiles  Profile[]
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts  SocialAccount[]
+  posts     Post[]
+}
+
+model SocialAccount {
+  id           String   @id @default(cuid())
+  profileId    String
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  platform     String   // "twitter", "linkedin"
+  accountName  String
+  accessToken  String   @db.Text
+
+  postTargets PostTarget[]
+}
+
+model Post {
+  id           String       @id @default(cuid())
+  profileId    String
+  profile      Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  content      String       @db.Text
+  mediaUrls    Json?        // Holds arrays of image/video links
+  status       PostStatus   @default(DRAFT)
+  scheduledFor DateTime?
+  createdAt    DateTime     @default(now())
+
+  targets      PostTarget[]
+}
+
+model PostTarget {
+  id              String        @id @default(cuid())
+  postId          String
+  post            Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccountId String
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  status          PostStatus    @default(SCHEDULED)
+  externalPostId  String?       // The ID returned by the Twitter/FB API upon success
+  errorMessage    String?       @db.Text
+
+  @@unique([postId, socialAccountId]) // Prevents blasting the same account twice
+}
+
+enum Role{
+  USER
+  ADMIN
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
+
+enum Provider {
+  LOCAL
+  GITHUB
+  GOOGLE
 }
