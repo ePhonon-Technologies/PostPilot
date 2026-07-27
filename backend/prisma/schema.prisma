@@ -9,49 +9,64 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      Role @default(USER)
-  providerName  Provider
-  profiles  Profile[]
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String?
+  role         Role     @default(USER)
+  providerName Provider
+  profile      Profile?
 }
 
 model Profile {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accounts  SocialAccount[]
-  posts     Post[]
+  id          String          @id @default(cuid())
+  phoneNumber String?
+  firstName   String
+  lastName    String
+  avatarUrl   String?
+  userId      String          @unique
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts    SocialAccount[]
+  posts       Post[]
 }
 
 model SocialAccount {
-  id           String   @id @default(cuid())
+  id           String         @id @default(cuid())
   profileId    String
-  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  platform     String   // "twitter", "linkedin"
-  accountName  String
-  accessToken  String   @db.Text
+  profile      Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  platform     SocialPlatform
+  accountName  String // display name, e.g. "Jane Doe"
+  externalId   String // the platform's own user/page ID (LinkedIn "sub", Twitter user id, etc.)
+  accessToken  String         @db.Text
+  refreshToken String?        @db.Text
+  expiresAt    DateTime?
+  isActive     Boolean        @default(true) // flip false when a token dies / user disconnects
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   postTargets PostTarget[]
+
+  @@unique([profileId, platform, externalId]) // prevents connecting the same account twice
 }
 
 model Post {
-  id           String       @id @default(cuid())
-  profileId    String
-  profile      Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  content      String       @db.Text
-  mediaUrls    Json?        // Holds arrays of image/video links
-  status       PostStatus   @default(DRAFT)
-  scheduledFor DateTime?
-  createdAt    DateTime     @default(now())
+  id          String        @id @default(cuid())
+  profileId   String
+  profile     Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  content     String        @db.Text
+  mediaUrls   Json?
+  status      PostStatus    @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime? // Added: Tracks exact time post was successfully published
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  targets     PostTarget[]
 
-  targets      PostTarget[]
+  @@index([status, scheduledAt])
+  @@index([profileId]) // Added: Essential for fast queries when listing a profile's posts
 }
 
 model PostTarget {
@@ -61,13 +76,41 @@ model PostTarget {
   socialAccountId String
   socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
   status          PostStatus    @default(SCHEDULED)
-  externalPostId  String?       // The ID returned by the Twitter/FB API upon success
+  externalPostId  String?
   errorMessage    String?       @db.Text
+  publishedAt     DateTime?
 
-  @@unique([postId, socialAccountId]) // Prevents blasting the same account twice
+  @@unique([postId, socialAccountId])
+  @@index([status])
 }
 
-enum Role{
+model Queue {
+  id        String      @id @default(uuid())
+  // 1. Job Identification
+  jobType   JobType
+  // e.g., "POST_123", "EMAIL_USER_456"
+  entityKey String?     @unique
+  // 3. Flexible Payload
+  payload   Json // Stores job data like { postId: "...", targetIds: [...] }
+  publishAt DateTime
+  status    QueueStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+
+  @@index([status, publishAt])
+}
+
+model FailedQueue {
+  id           String   @id @default(uuid())
+  jobType      JobType
+  entityKey    String?
+  payload      Json
+  errorMessage String   @db.Text
+  failedAt     DateTime @default(now())
+
+  @@index([jobType])
+}
+
+enum Role {
   USER
   ADMIN
 }
@@ -75,6 +118,8 @@ enum Role{
 enum PostStatus {
   DRAFT
   SCHEDULED
+  PENDING
+  PARTIALLY_PUBLISHED
   PUBLISHED
   FAILED
 }
@@ -83,4 +128,22 @@ enum Provider {
   LOCAL
   GITHUB
   GOOGLE
+}
+
+enum SocialPlatform {
+  LINKEDIN
+  TWITTER
+  FACEBOOK
+  INSTAGRAM
+}
+
+enum QueueStatus {
+  PENDING
+  PROCESSING
+  FAILED
+}
+
+enum JobType {
+  PUBLISH_POST
+  SEND_EMAIL
 }

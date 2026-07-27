@@ -1,8 +1,5 @@
-
 const Schedule = () => {
-  return (
-    <div>Schedule</div>
-  )
-}
+  return <div>Schedule</div>;
+};
 
-export default Schedule
+export default Schedule;

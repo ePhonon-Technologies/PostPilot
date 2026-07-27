@@ -1,0 +1,9 @@
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    network_mode: host
+    environment:
+      - NGROK_AUTHTOKEN=3GlaJ4ooU2WdPewu8x9uTceZKzq_2kgfPdhphH6pXerhGycGB
+    command: http --domain=engulf-carnage-stapling.ngrok-free.dev 3000
+
+    # ngrok_id= rd_3GlaJjlfrUAG1e5kVpCrvgD462P
