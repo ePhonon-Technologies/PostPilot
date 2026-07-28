@@ -17,9 +17,7 @@ const MainLayout = () => {
 
       <div className='flex flex-1 overflow-hidden relative'>
         {/* 2. Sidebar gets the state and close function */}
-        <Sidebar isOpen={isMobileSidebarOpen}
-          onClose={closeMobileSidebar}
-        />
+        <Sidebar isOpen={isMobileSidebarOpen} onClose={closeMobileSidebar} />
 
         {/* 3. Main Outlet container */}
         <main className='flex-1 overflow-y-auto no-scrollbar p-4 md:p-6'>

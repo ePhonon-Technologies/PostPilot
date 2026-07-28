@@ -14,7 +14,6 @@ export const handlers: Record<JobType, JobHandler> = {
       include: { targets: true },
     });
 
-    console.log('posting the scheduled post', post);
     if (!post) {
       throw new Error(`Post with ID ${payload.postId} not found.`);
     }

@@ -288,11 +288,6 @@ export default function Settings() {
           {/* 3. TAB 4: ACCOUNTS */}
           {activeTab === 'accounts' && (
             <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5'>
-              <h2 className='text-lg font-semibold flex items-center gap-2 text-gray-800'>
-                <FaUserCog className='text-blue-500' /> Connected Social
-                Accounts
-              </h2>
-
               {/* Replace this div with your custom Accounts component */}
               {/* <AccountsComponent /> */}
               <ConnectionsSettings />

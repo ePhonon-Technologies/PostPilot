@@ -1,1 +1,1 @@
-pretier command : npx prettier --write "src/**/*.{ts,tsx}"
+pretier command :npx prettier --write "src/**/*.{ts,tsx}"

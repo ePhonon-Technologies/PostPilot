@@ -4,6 +4,7 @@ import { LuLayers, LuInfo, LuCircleCheck, LuCirclePlus } from 'react-icons/lu';
 import SocialConnectionCard from '../../components/socialConnection/SocialConnectionCard';
 import { useAppDispatch, useAppSelector } from '../../store/hook';
 import {
+  fetchProviderConnections,
   fetchSocialAccounts,
   selectAllSocialAccounts,
 } from '../../store/slices/socialAccountSlice';
@@ -13,9 +14,11 @@ import { SOCIAL_PLATFORMS } from '../../config/platfrom';
 export default function ConnectionsSettings() {
   const dispatch = useAppDispatch();
   const connectedAccounts = useAppSelector(selectAllSocialAccounts);
+  console.log(connectedAccounts);
 
   useEffect(() => {
     dispatch(fetchSocialAccounts());
+    dispatch(fetchProviderConnections());
   }, [dispatch]);
 
   // Derive connected vs available platform types
@@ -63,7 +66,7 @@ export default function ConnectionsSettings() {
             <span>Active Channels ({connectedPlatforms.length})</span>
           </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 gap-4'>
             {connectedPlatforms.map((platform) => (
               <SocialConnectionCard key={platform} platform={platform} />
             ))}

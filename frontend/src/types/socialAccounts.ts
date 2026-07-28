@@ -26,7 +26,6 @@ export interface MediaItem {
 
 export type PublishMode = 'now' | 'schedule' | 'draft';
 
-
 export interface ScheduledPost {
   id: string;
   platforms: SocialPlatform[];
@@ -43,11 +42,32 @@ export interface MetricCardProps {
   iconBg: string;
 }
 
-
 export interface AccountHealthItemProps {
   name: string;
   handle: string;
   status: 'healthy' | 'expired' | string;
   icon: IconType;
   iconColor: string;
+}
+
+// types/facebook.ts
+
+export interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string;
+  connected: boolean;
+}
+
+export interface FacebookPageModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+
+export interface SocialProviderConnection {
+  id: string;
+  profileId: string;
+  platform: SocialPlatform
+  createdAt: string;
 }

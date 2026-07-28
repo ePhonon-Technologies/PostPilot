@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { PrismaClient, SocialPlatform } from '@prisma/client';
 import { AuthedRequest } from '../../types/auth';
+import { prisma } from '../../config/db';
 
-const prisma = new PrismaClient();
 
 // ---------------------------------------------------------------------------
 // GET /social-accounts?platform=LINKEDIN
@@ -13,7 +13,6 @@ const prisma = new PrismaClient();
 
 export async function listSocialAccounts(req: AuthedRequest, res: Response) {
   const userId = req.auth?.userId;
-  const { platform } = req.query;
 
   if (!userId) {
     return res.status(401).json({ message: 'Not authenticated' });
@@ -30,10 +29,8 @@ export async function listSocialAccounts(req: AuthedRequest, res: Response) {
   const accounts = await prisma.socialAccount.findMany({
     where: {
       profileId: profile.id,
-      ...(platform ? { platform: platform as SocialPlatform } : {}),
     },
   });
-
   res.json(accounts);
 }
 
@@ -44,16 +41,26 @@ export async function listSocialAccounts(req: AuthedRequest, res: Response) {
 // ---------------------------------------------------------------------------
 
 export async function getSocialAccount(req: AuthedRequest, res: Response) {
-  const profileId = req.auth?.profileId;
+   const userId = req.auth?.userId;
+
   const { id } = req.params;
 
-  if (!profileId) {
+  if (!userId) {
     return res.status(401).json({ message: 'Not authenticated' });
   }
 
+  const profile = await prisma.profile.findUnique({
+    where: { userId },
+  });
+
+  if (!profile) {
+    return res.status(404).json({ message: 'No profile exists for this user' });
+  }
+
+
   const account = await prisma.socialAccount.findUnique({ where: { id: id as string } });
 
-  if (!account || account.profileId !== profileId) {
+  if (!account || account.profileId !== profile.id) {
     return res.status(404).json({ message: 'Social account not found' });
   }
 
@@ -85,7 +92,6 @@ export async function disconnectSocialAccount(
     });
   }
 
-  console.log('disconnecting',userId, id);
 
   const profile = await prisma.profile.findUnique({
     where: {
@@ -121,3 +127,66 @@ export async function disconnectSocialAccount(
 
   return res.status(204).send();
 }
+
+
+
+export const disconnectProvider = async (
+  req: AuthedRequest,
+  res: Response,
+) => {
+  try {
+    // Assuming profileId is attached via your auth middleware (e.g., req.user.profileId)
+    console.log('I am here')
+    const userId = req.auth?.userId;
+    const { platform } = req.body;
+
+     if (!userId) {
+    return res.status(401).json({
+      message: "Not authenticated",
+    });
+  }
+
+    if (!platform) {
+      return res.status(400).json({ message: 'Platform is required' });
+    }
+
+  const profile = await prisma.profile.findUnique({
+    where: {
+      userId,
+    },
+  });
+
+  if (!profile) {
+    return res.status(404).json({
+      message: "Profile not found",
+    });
+  }
+
+    // Run in a transaction so both provider connection and pages are deleted together
+    await prisma.$transaction([
+      // 1. Delete all connected pages/profiles for this platform under the user's profile
+      prisma.socialAccount.deleteMany({
+        where: {
+          profileId: profile.id,
+          platform,
+        },
+      }),
+
+      // 2. Delete the SocialProviderConnection record storing the userAccessToken
+      prisma.socialProviderConnection.deleteMany({
+        where: {
+          profileId: profile.id,
+          platform,
+        },
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: `${platform} connection removed successfully`,
+    });
+  } catch (error) {
+    console.error('Error disconnecting social provider:', error);
+    return res.status(500).json({ message: 'Failed to disconnect provider' });
+  }
+};

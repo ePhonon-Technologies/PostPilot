@@ -23,7 +23,6 @@ const links = [
   { to: '/posts', label: 'Posts', icon: FileText },
   { to: '/schedule', label: 'Schedule', icon: CalendarDays },
   { to: '/settings', label: 'Settings', icon: Settings },
-  { to: '/settings/connections', label: 'Test', icon: LucideShoppingBasket },
 ];
 
 const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {

@@ -1,31 +1,40 @@
-// useOAuthStatusMessage.ts — thin, local-only, NOT in Redux
-import { useState, useEffect } from 'react';
+// src/hooks/useOAuthStatusMessage.ts
+import { useEffect, useMemo } from 'react';
+import { toast } from 'react-toastify';
 import { PLATFORM_CONFIG } from '../config/platfrom';
 import type { SocialPlatform } from '../types/socialAccounts';
 
 export function useOAuthStatusMessage(platform: SocialPlatform) {
   const config = PLATFORM_CONFIG[platform];
 
-  const [statusMessage, setStatusMessage] = useState<string | null>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get(platform.toLowerCase());
-    const reason = params.get('reason');
-    if (status === 'connected')
-      return `✅ ${config.label} connected successfully.`;
-    if (status === 'error')
-      return `❌ ${config.label} connection failed: ${reason ?? 'unknown error'}`;
-    return null;
-  });
-
-  useEffect(() => {
+  // Derive initial OAuth status directly from URL params
+  const { status, reason } = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const paramKey = platform.toLowerCase();
-    if (!params.has(paramKey)) return;
-    params.delete(paramKey);
+    return {
+      status: params.get(paramKey),
+      reason: params.get('reason'),
+    };
+  }, [platform]);
+
+  const isAuthorized = status === 'authorized' || status === 'connected';
+
+  // Trigger toast notification and clean up URL query params
+  useEffect(() => {
+    if (!status) return;
+
+    if (isAuthorized) {
+      toast.success(`✅ ${config.label} connected successfully.`);
+    } else if (status === 'error') {
+      toast.error(`❌ ${config.label} connection failed: ${reason ?? 'unknown error'}`);
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    params.delete(platform.toLowerCase());
     params.delete('reason');
     const cleanUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ''}`;
     window.history.replaceState({}, '', cleanUrl);
-  }, [platform]);
+  }, [status, isAuthorized, platform, config.label, reason]);
 
-  return { statusMessage, setStatusMessage };
+  return { isAuthorized };
 }

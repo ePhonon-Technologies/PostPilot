@@ -35,7 +35,6 @@ export const register = async (
       where: { email: data.email },
     });
 
-    console.log('existing user',existing);
 
     if (existing) {
       throw new AppError("Email already in use", 409);

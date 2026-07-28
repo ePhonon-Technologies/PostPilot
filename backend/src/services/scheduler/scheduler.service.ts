@@ -5,8 +5,6 @@ import { queueState } from "../../utils/queueState";
 import { processJob } from "../job/jobhandler";
 
 export function startCronWorker() {
-  console.log("[Cron Worker] Initialized.");
-
   // Runs every minute
   cron.schedule("* * * * *", async () => {
     // 1. Skip DB query completely if in-memory flag says queue is empty

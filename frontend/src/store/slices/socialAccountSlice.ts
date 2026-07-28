@@ -3,20 +3,22 @@ import {
   createSlice,
   type PayloadAction,
 } from '@reduxjs/toolkit';
-import api from '../../api/client';
 import { getErrorMessage } from './authSlice';
-import type { SocialAccount, SocialPlatform } from '../../types/socialAccounts';
+import type { SocialAccount, SocialPlatform, SocialProviderConnection } from '../../types/socialAccounts';
 import type { RootState } from '..';
+import apiRequest from '../../api/client';
 
-interface SocialAccountState {
+export interface SocialAccountState {
   accounts: SocialAccount[];
+  providerConnections: SocialProviderConnection[];
   loading: boolean;
   error: string | null;
-  disconnectingId: string | null; // tracks which account is mid-disconnect, so only that card shows a spinner
+  disconnectingId: string | null;
 }
 
 const initialState: SocialAccountState = {
   accounts: [],
+  providerConnections: [],
   loading: false,
   error: null,
   disconnectingId: null,
@@ -32,7 +34,7 @@ export const fetchSocialAccounts = createAsyncThunk<
   { rejectValue: string }
 >('socialAccounts/fetch', async (platform, { rejectWithValue }) => {
   try {
-    const response = await api.get<SocialAccount[]>('/social-accounts', {
+    const response = await apiRequest.get<SocialAccount[]>('/social-accounts', {
       params: platform ? { platform } : undefined,
     });
     return response.data;
@@ -43,13 +45,50 @@ export const fetchSocialAccounts = createAsyncThunk<
   }
 });
 
+
+// facebook socialProviderConnections
+
+export const fetchProviderConnections = createAsyncThunk(
+  'socialAccounts/fetchProviderConnections',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiRequest.get<SocialProviderConnection[]>('/social-providers', {
+        withCredentials: true,
+      });
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to fetch provider connections'
+      );
+    }
+  }
+);
+
+export const disconnectProviderConnection = createAsyncThunk<
+  SocialPlatform, // Returns the platform enum/string to identify what to remove in state
+  SocialPlatform, // Accepts the target platform as the argument
+  { rejectValue: string }
+>('socialAccounts/disconnectProvider', async (platform, { rejectWithValue }) => {
+  try {
+    // Pass the platform in the request body (or via params as `/social-providers/${platform.toLowerCase()}`)
+    await apiRequest.delete('/social-providers/disconnect', {
+      data: { platform },
+    });
+    return platform;
+  } catch (err) {
+    return rejectWithValue(
+      getErrorMessage(err, `Failed to disconnect ${platform}`),
+    );
+  }
+});
+
 export const disconnectSocialAccount = createAsyncThunk<
   string, // returns the disconnected account's id, so the reducer knows which to remove
   string,
   { rejectValue: string }
 >('socialAccounts/disconnect', async (accountId, { rejectWithValue }) => {
   try {
-    await api.delete(`/social-accounts/${accountId}`);
+    await apiRequest.delete(`/social-accounts/${accountId}`);
     return accountId;
   } catch (err) {
     return rejectWithValue(
@@ -111,6 +150,38 @@ export const socialAccountSlice = createSlice({
       .addCase(disconnectSocialAccount.rejected, (state, action) => {
         state.disconnectingId = null;
         state.error = action.payload || 'Failed to disconnect account';
+      })
+
+      // Fetch Provider Connections
+      .addCase(fetchProviderConnections.fulfilled, (state, action) => {
+        state.providerConnections = action.payload;
+      })
+
+      .addCase(disconnectProviderConnection.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      // Fulfilled State (Success)
+      .addCase(disconnectProviderConnection.fulfilled, (state, action) => {
+        state.loading = false;
+
+        // Remove the provider connection matching the disconnected platform
+        state.providerConnections = state.providerConnections.filter(
+          (conn) => conn.platform !== action.payload,
+        );
+
+        // Clear any connected accounts/pages attached to this platform
+        state.accounts = state.accounts.filter(
+          (acc) => acc.platform !== action.payload,
+        );
+      })
+
+      // Rejected State (Failure)
+      .addCase(disconnectProviderConnection.rejected, (state, action) => {
+        state.loading = false;
+        // Fallback to action.payload or a default error message
+        state.error = action.payload || 'Failed to disconnect social provider';
       });
   },
 });
@@ -137,3 +208,6 @@ export const selectSocialAccountsError = (state: RootState) =>
 
 export const selectDisconnectingId = (state: RootState) =>
   state.socialAccounts.disconnectingId;
+
+export const selectProviderConnections = (state: RootState) =>
+  state.socialAccounts.providerConnections;

@@ -34,7 +34,8 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
   );
 
   // Fallback name and avatar if no account is connected yet
-  const accountName = activeAccount?.accountName || `${currentPlatform?.label || 'Social'} User`;
+  const accountName =
+    activeAccount?.accountName || `${currentPlatform?.label || 'Social'} User`;
   const avatarUrl = activeAccount?.avatarUrl;
 
   return (
@@ -69,14 +70,16 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
       <div className='bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-4'>
         {/* Author Header */}
         <div className='flex items-center gap-3'>
-          <Avatar name={accountName} src={avatarUrl} background='bg-blue-700'/>
+          <Avatar name={accountName} src={avatarUrl} background='bg-blue-700' />
           <div>
             <h4 className='text-sm font-bold text-gray-900'>{accountName}</h4>
-            {currentPlatform?.handle  && <div className='flex items-center gap-1 text-xs text-gray-400'>
-              <span>{currentPlatform?.handle}</span>
-              <span>•</span>
-              <LuGlobe className='w-3 h-3' />
-            </div>}
+            {currentPlatform?.handle && (
+              <div className='flex items-center gap-1 text-xs text-gray-400'>
+                <span>{currentPlatform?.handle}</span>
+                <span>•</span>
+                <LuGlobe className='w-3 h-3' />
+              </div>
+            )}
           </div>
         </div>
 

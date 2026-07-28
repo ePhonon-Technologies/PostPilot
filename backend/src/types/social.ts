@@ -38,3 +38,33 @@ export class LinkedInTokenExpiredError extends Error {
   }
 }
 
+export interface FacebookTokenResponse {
+  access_token: string;
+  expires_in?: number; // seconds; absent for long-lived/never-expiring tokens
+  token_type: string;
+}
+ 
+export interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string; // Page-specific token — this is what you post with, not the user token
+  category: string;
+  tasks: string[];
+}
+ 
+export interface FacebookPublishInput {
+  profileId: string;
+  socialAccountId: string;
+  content: string;
+  imageUrls?: string[];
+}
+export class FacebookTokenExpiredError extends Error {
+  constructor(public socialAccountId: string) {
+    super('Facebook Page access token has expired — the page needs to be reconnected.');
+    this.name = 'FacebookTokenExpiredError';
+  }
+}
+
+
+
+

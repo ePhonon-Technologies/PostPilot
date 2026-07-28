@@ -6,7 +6,7 @@ import {
   isTokenExpiredError,
   isVideoFilePath,
 } from "../utils/multer";
-import { postToLinkedIn } from "./linkedin/linkedin.service";
+import { postToLinkedIn } from "./social/linkedin/linkedin.service";
 
 /**
  * Central dispatcher: Validates platform media restrictions and dispatches to platform publishers.

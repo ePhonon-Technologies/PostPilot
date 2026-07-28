@@ -1,15 +1,13 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import {
-  buildLinkedInAuthUrl,
-  exchangeCodeForToken,
-  fetchLinkedInUserInfo,
-  saveLinkedInAccount,
-
-} from "../../services/linkedin/linkedin.service";
-import {  SocialPlatform } from "@prisma/client";
+import { SocialPlatform } from "@prisma/client";
 import { AuthedRequest } from "../../types/auth";
 import { prisma } from "../../config/db";
+import {
+  buildAuthUrl,
+  dispatchOAuthCallback,
+} from "../../services/social/oauth/OauthCallback.service";
+import { buildFacebookAuthUrl } from "../../services/social/facebook/facebook.service";
 
 // State token is a short-lived JWT carrying the profileId, so the callback
 // (which LinkedIn hits, not the browser session directly) can be tied back
@@ -59,14 +57,15 @@ export async function connectPlatform(req: AuthedRequest, res: Response) {
 
   const state = generateState(profile.id);
 
-  let authUrl: string;
+  const platformKey = platform.toUpperCase() as SocialPlatform;
 
-  if (platform.toUpperCase() === SocialPlatform.LINKEDIN) {
-    authUrl = buildLinkedInAuthUrl(state);
-  } else {
-    return res.status(400).json({
-      message: `Unsupported platform: ${platform}`,
-    });
+  let authUrl: string;
+  try {
+    authUrl = buildAuthUrl(platformKey, state);
+  } catch {
+    return res
+      .status(400)
+      .json({ message: `Unsupported platform: ${platform}` });
   }
 
   return res.redirect(authUrl);
@@ -79,12 +78,36 @@ export async function connectPlatform(req: AuthedRequest, res: Response) {
 
 export async function platformCallback(req: Request, res: Response) {
   const { code, state, error, error_description } = req.query;
-  const {platform} = req.params;
+  const { platform } = req.params;
 
   const frontendBase = process.env.CLIENT_URL!;
 
+  // Narrow platform to a plain string before using it — same reasoning as
+  // the code/state narrowing below: Express types route params as
+  // string | string[] for certain patterns, and .toUpperCase() only exists
+  // on the string branch.
+  if (typeof platform !== "string") {
+    return res.redirect(
+      `${frontendBase}/settings/connections?error=invalid_platform`,
+    );
+  }
+
+  const platformKey = platform.toUpperCase();
+  const validPlatforms: SocialPlatform[] = [
+    "LINKEDIN",
+    "FACEBOOK",
+    "TWITTER",
+    "INSTAGRAM",
+  ];
+
+  if (!validPlatforms.includes(platformKey as SocialPlatform)) {
+    return res.redirect(
+      `${frontendBase}/settings/connections?${platform}=error&reason=unsupported_platform`,
+    );
+  }
+
   if (error) {
-    console.error("LinkedIn OAuth error:", error, error_description);
+    console.error(`${platform} OAuth error:`, error, error_description);
     return res.redirect(
       `${frontendBase}/settings/connections?${platform}=error&reason=${encodeURIComponent(
         String(error_description ?? error),
@@ -92,7 +115,11 @@ export async function platformCallback(req: Request, res: Response) {
     );
   }
 
-  if (!code || !state) {
+  // Explicit narrowing instead of `!code || !state` — Express types query
+  // values as string | string[] | ParsedQs | ParsedQs[], and this both
+  // rejects malformed requests AND properly narrows the type to `string`
+  // for everything used below.
+  if (typeof code !== "string" || typeof state !== "string") {
     return res.redirect(
       `${frontendBase}/settings/connections?${platform}=error&reason=missing_params`,
     );
@@ -100,7 +127,7 @@ export async function platformCallback(req: Request, res: Response) {
 
   let profileId: string;
   try {
-    ({ profileId } = verifyState(state as string));
+    ({ profileId } = verifyState(state));
   } catch {
     return res.redirect(
       `${frontendBase}/settings/connections?${platform}=error&reason=invalid_state`,
@@ -108,19 +135,16 @@ export async function platformCallback(req: Request, res: Response) {
   }
 
   try {
-    const tokenData = await exchangeCodeForToken(code as string);
-    const userInfo = await fetchLinkedInUserInfo(tokenData.access_token);
-
-    await saveLinkedInAccount(profileId, tokenData, userInfo);
-
-    return res.redirect(
-      `${frontendBase}/settings/connections?${platform}=connected`,
+    const { redirectPath } = await dispatchOAuthCallback(
+      platformKey as SocialPlatform,
+      code,
+      profileId,
     );
+    return res.redirect(`${frontendBase}${redirectPath}`);
   } catch (err) {
-    console.error("LinkedIn callback failed:", err);
+    console.error(`${platform} callback failed:`, err);
     return res.redirect(
       `${frontendBase}/settings/connections?${platform}=error&reason=token_exchange_failed`,
     );
   }
 }
-

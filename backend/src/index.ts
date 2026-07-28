@@ -24,7 +24,6 @@ app.use(cookieParser());
 // credentials: true is required for the browser to send/accept the httpOnly
 // auth cookie cross-origin. origin can't be "*" when credentials is true —
 // it must be the exact client URL.
-console.log('client url', process.env.CLIENT_URL);
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
@@ -39,7 +38,6 @@ app.use(express.json());
 // /google and /google/callback routes will throw at runtime.
 
 app.get("/", (req: Request, res: Response) => {
-  console.log('received request')
   res.json({ message: "Server is running" });
 });
 

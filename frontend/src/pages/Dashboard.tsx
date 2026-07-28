@@ -19,7 +19,11 @@ import {
 
 // 2. Social Brand Logos (via react-icons/fa6)
 import { FaLinkedin, FaXTwitter, FaInstagram } from 'react-icons/fa6';
-import type { AccountHealthItemProps, MetricCardProps, ScheduledPost } from '../types/socialAccounts';
+import type {
+  AccountHealthItemProps,
+  MetricCardProps,
+  ScheduledPost,
+} from '../types/socialAccounts';
 
 // Types for scheduled posts
 
@@ -279,19 +283,21 @@ export default function Dashboard() {
 }
 
 // Subcomponent: Metric Card
-function MetricCard({ title, value, change, icon: Icon, iconBg }: MetricCardProps) {
+function MetricCard({
+  title,
+  value,
+  change,
+  icon: Icon,
+  iconBg,
+}: MetricCardProps) {
   return (
     <div className='bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between'>
       <div>
         <p className='text-xs font-medium text-gray-500 uppercase tracking-wider'>
           {title}
         </p>
-        <p className='text-2xl font-bold text-gray-900 mt-1'>
-          {value}
-        </p>
-        <p className='text-xs text-emerald-600 font-medium mt-1'>
-          {change}
-        </p>
+        <p className='text-2xl font-bold text-gray-900 mt-1'>{value}</p>
+        <p className='text-xs text-emerald-600 font-medium mt-1'>{change}</p>
       </div>
       <div className={`p-3 rounded-2xl ${iconBg}`}>
         <Icon className='w-6 h-6' />
@@ -313,9 +319,7 @@ function AccountHealthItem({
       <div className='flex items-center gap-3'>
         <Icon className={`w-5 h-5 ${iconColor}`} />
         <div>
-          <p className='text-sm font-semibold text-gray-800'>
-            {name}
-          </p>
+          <p className='text-sm font-semibold text-gray-800'>{name}</p>
           <p className='text-xs text-gray-400'>{handle}</p>
         </div>
       </div>
