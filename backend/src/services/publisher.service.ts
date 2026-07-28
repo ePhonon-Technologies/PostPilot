@@ -7,6 +7,7 @@ import {
   isVideoFilePath,
 } from "../utils/multer";
 import { postToLinkedIn } from "./social/linkedin/linkedin.service";
+import { postToFacebook } from "./social/facebook/facebook.service";
 
 /**
  * Central dispatcher: Validates platform media restrictions and dispatches to platform publishers.
@@ -63,7 +64,7 @@ export async function dispatchPublish(
           );
         }
 
-        return await postToLinkedIn(input);
+        return await postToFacebook(input);
       }
 
       case "INSTAGRAM": {

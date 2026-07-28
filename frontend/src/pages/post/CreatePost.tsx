@@ -23,7 +23,6 @@ import EmojiPicker from 'emoji-picker-react';
 export default function CreatePost() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([
     'LINKEDIN',
-    'TWITTER',
   ]);
   const [content, setContent] = useState('');
   const [media, setMedia] = useState<MediaItem[]>([]);

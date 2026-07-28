@@ -1,5 +1,6 @@
 import path from "path";
-import { LinkedInTokenExpiredError } from "../types/social";
+import { LinkedInTokenExpiredError, MediaPayload } from "../types/social";
+import fs from 'fs/promises';
 
 export const MIME_TYPES = Object.freeze({
   PDF: 'application/pdf',
@@ -32,6 +33,31 @@ export function isImageFilePath(filePath: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath);
 }
 
+
+async function getFilePayload(filePathOrUrl: string): Promise<MediaPayload> {
+  const mimeType = getMimeTypeFromPath(filePathOrUrl);
+
+  if (filePathOrUrl.startsWith('http://') || filePathOrUrl.startsWith('https://')) {
+    return {
+      isRemoteUrl: true,
+      url: filePathOrUrl,
+      mimeType,
+    };
+  }
+
+  // Resolve local filesystem path
+  const absolutePath = path.isAbsolute(filePathOrUrl)
+    ? filePathOrUrl
+    : path.join(process.cwd(), filePathOrUrl);
+
+  const buffer = await fs.readFile(absolutePath);
+  return {
+    buffer,
+    isRemoteUrl: false,
+    url: absolutePath,
+    mimeType,
+  };
+}
 
 // Check for platform token expiry errors
 export function isTokenExpiredError(err: unknown): boolean {
@@ -73,3 +99,5 @@ export function getMimeTypeFromPath(filePath: string): AllowedMimeType {
       return MIME_TYPES.JPEG; // Fallback
   }
 }
+
+

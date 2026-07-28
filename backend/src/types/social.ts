@@ -56,7 +56,7 @@ export interface FacebookPublishInput {
   profileId: string;
   socialAccountId: string;
   content: string;
-  imageUrls?: string[];
+  mediaUrls?: string[];
 }
 export class FacebookTokenExpiredError extends Error {
   constructor(public socialAccountId: string) {
@@ -65,6 +65,13 @@ export class FacebookTokenExpiredError extends Error {
   }
 }
 
+
+export interface MediaPayload {
+  buffer?: Buffer;
+  isRemoteUrl: boolean;
+  url: string;
+  mimeType: string;
+}
 
 
 

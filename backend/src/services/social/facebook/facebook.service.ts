@@ -10,6 +10,8 @@ import {
 } from "../../../types/social";
 import { decrypt, encrypt } from "../../../utils/crypto";
 import { SocialPlatform } from "@prisma/client";
+import { getMimeTypeFromPath, isVideoFilePath } from "../../../utils/multer";
+import fs from 'fs/promises';
 
 const GRAPH_API_VERSION = process.env.FACEBOOK_GRAPH_API_VERSION; // current as of Feb 2026 — Meta releases roughly twice a year, ~2yr support window
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
@@ -184,46 +186,229 @@ export async function saveFacebookPage(profileId: string, page: FacebookPage) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Publish a post to a connected Facebook Page.
-// ---------------------------------------------------------------------------
+
+
+export async function uploadMediaToFacebook(
+  pageId: string,
+  filePath: string,
+  accessToken: string,
+  mediaType: 'image' | 'video',
+  options: {
+    published?: boolean;
+    caption?: string;
+  } = {},
+): Promise<string> {
+  try {
+    const buffer = await fs.readFile(filePath);
+    const mimeType = getMimeTypeFromPath(filePath);
+
+    const FormData = (await import('form-data')).default;
+    const form = new FormData();
+
+    form.append(
+      'source',
+      buffer,
+      {
+        filename:
+          mediaType === 'image'
+            ? 'image.jpg'
+            : 'video.mp4',
+        contentType: mimeType,
+      },
+    );
+
+    form.append('access_token', accessToken);
+
+    if (options.caption) {
+      if (mediaType === 'image') {
+        form.append('caption', options.caption);
+      } else {
+        form.append('description', options.caption);
+      }
+    }
+
+    if (mediaType === 'image') {
+      form.append(
+        'published',
+        String(options.published ?? true),
+      );
+
+      const res = await axios.post(
+        `${GRAPH_API_BASE}/${pageId}/photos`,
+        form,
+        {
+          headers: form.getHeaders(),
+        },
+      );
+
+          console.log('media upload', res.data);
+
+      return res.data.id;
+    }
+
+
+    const res = await axios.post(
+      `${GRAPH_API_BASE}/${pageId}/videos`,
+      form,
+      {
+        headers: form.getHeaders(),
+      },
+    );
+              console.log('media upload', res.data);
+
+
+    return res.data.id;
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
+      console.error(
+        'Facebook Upload Error:',
+        error.response?.data,
+      );
+    }
+
+    throw new Error(
+      error.response?.data?.error?.message ??
+        error.message ??
+        'Facebook upload failed',
+    );
+  }
+}
 
 export async function postToFacebook(
   input: FacebookPublishInput,
 ): Promise<{ externalPostId: string }> {
-  const account = await prisma.socialAccount.findUniqueOrThrow({
-    where: { id: input.socialAccountId },
-  });
+  try {
+    const account =
+      await prisma.socialAccount.findUniqueOrThrow({
+        where: {
+          id: input.socialAccountId,
+        },
+      });
 
-  if (!account.isActive) {
-    throw new FacebookTokenExpiredError(input.socialAccountId);
+    if (!account.isActive) {
+      throw new FacebookTokenExpiredError(account.id);
+    }
+
+    const accessToken = decrypt(account.accessToken);
+    const pageId = account.externalId;
+
+    const mediaPaths = input.mediaUrls ?? [];
+
+    // --------------------------
+    // Text Post
+    // --------------------------
+          console.log('media path', mediaPaths);
+
+    if (mediaPaths.length === 0) {
+      const res = await axios.post(
+        `${GRAPH_API_BASE}/${pageId}/feed`,
+        {
+          message: input.content,
+          access_token: accessToken,
+        },
+      );
+
+      return {
+        externalPostId: res.data.id,
+      };
+    }
+
+    const videoPaths = mediaPaths.filter(isVideoFilePath);
+
+    // --------------------------
+    // Video
+    // --------------------------
+
+    if (videoPaths.length === 1) {
+      const videoId =
+        await uploadMediaToFacebook(
+          pageId,
+          videoPaths[0],
+          accessToken,
+          'video',
+          {
+            caption: input.content,
+          },
+        );
+
+      return {
+        externalPostId: videoId,
+      };
+    }
+
+    // --------------------------
+    // Single Image
+    // --------------------------
+
+    if (mediaPaths.length === 1) {
+      const photoId =
+        await uploadMediaToFacebook(
+          pageId,
+          mediaPaths[0],
+          accessToken,
+          'image',
+          {
+            caption: input.content,
+            published: true,
+          },
+        );
+
+      return {
+        externalPostId: photoId,
+      };
+    }
+
+    // --------------------------
+    // Multiple Images
+    // --------------------------
+
+    const photoIds = await Promise.all(
+      mediaPaths.map((path) =>
+        uploadMediaToFacebook(
+          pageId,
+          path,
+          accessToken,
+          'image',
+          {
+            published: false,
+          },
+        ),
+      ),
+    );
+
+    console.log('photo ids', photoIds);
+    const attachedMedia = photoIds.map((id) => ({
+      media_fbid: id,
+    }));
+
+    const res = await axios.post(
+      `${GRAPH_API_BASE}/${pageId}/feed`,
+      {
+        message: input.content,
+        attached_media: attachedMedia,
+        access_token: accessToken,
+      },
+    );
+
+    console.log('final response', res.data);
+    return {
+      externalPostId: res.data.id,
+    };
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
+      console.error(
+        'Facebook Publish Error:',
+        error.response?.data,
+      );
+    }
+
+    throw new Error(
+      error.response?.data?.error?.message ??
+        error.message ??
+        'Facebook publish failed',
+    );
   }
-
-  const pageAccessToken = decrypt(account.accessToken);
-  const pageId = account.externalId;
-
-  // No images — simple text/link post to the Page's feed.
-  if (!input.imageUrls || input.imageUrls.length === 0) {
-    const res = await axios.post(`${GRAPH_API_BASE}/${pageId}/feed`, {
-      message: input.content,
-      access_token: pageAccessToken,
-    });
-    return { externalPostId: res.data.id };
-  }
-
-  // Single image — Facebook's /photos endpoint posts the image AND the
-  // caption together in one call, unlike LinkedIn's separate register/
-  // upload/reference dance.
-  const res = await axios.post(`${GRAPH_API_BASE}/${pageId}/photos`, {
-    url: input.imageUrls[0],
-    caption: input.content,
-    access_token: pageAccessToken,
-  });
-
-  return { externalPostId: res.data.post_id ?? res.data.id };
 }
-
-
 export async function getAvailableFacebookPages(profileId: string) {
   try {
     const provider = await prisma.socialProviderConnection.findFirst({

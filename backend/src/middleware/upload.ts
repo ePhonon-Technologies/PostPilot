@@ -64,7 +64,6 @@ export const uploadMedia = (req: Request, res: Response, next: NextFunction) => 
       for (const file of files) {
         const isImage = file.mimetype.startsWith('image/');
         const isVideo = file.mimetype.startsWith('video/');
-
         // Enforce specific limit for images
         if (isImage && file.size > MAX_IMAGE_SIZE) {
           deleteUploadedFiles(files); // Clean up disk space!

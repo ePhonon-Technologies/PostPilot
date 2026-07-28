@@ -1,6 +1,6 @@
 // src/components/create-post/LivePreview.tsx
-import React from 'react';
-import { LuGlobe } from 'react-icons/lu';
+import React, { useState } from 'react';
+import { LuGlobe, LuUserCheck } from 'react-icons/lu';
 import { PLATFORM_CONFIG } from '../../config/platfrom';
 import { useAppSelector } from '../../store/hook';
 import { selectAllSocialAccounts } from '../../store/slices/socialAccountSlice';
@@ -28,18 +28,26 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
   // Fetch connected accounts from Redux store
   const allAccounts = useAppSelector(selectAllSocialAccounts);
 
-  // Find the connected account corresponding to the active preview tab
-  const activeAccount = allAccounts.find(
+  // Filter connected accounts for the active preview platform
+  const platformAccounts = allAccounts.filter(
     (account) => account.platform === previewTab,
   );
 
-  // Fallback name and avatar if no account is connected yet
-  const accountName =
-    activeAccount?.accountName || `${currentPlatform?.label || 'Social'} User`;
-  const avatarUrl = activeAccount?.avatarUrl;
+  // 1. User ke through select ki gayi account ID (can be null/empty string initially)
+  const [userSelectedAccountId, setUserSelectedAccountId] = useState<string>('');
+
+  // 2. DERIVED STATE: Pre-select current selected account, ya phir automatically first account pick karo
+  const activeAccount =
+    platformAccounts.find((acc) => acc.id === userSelectedAccountId) ||
+    platformAccounts[0] || {
+      id: 'fallback',
+      accountName: `${currentPlatform?.label || 'Social'} User`,
+      avatarUrl: undefined,
+    };
 
   return (
     <div className='lg:col-span-5 space-y-4'>
+      {/* Header: Title & Platform Selector */}
       <div className='flex items-center justify-between'>
         <span className='text-xs font-semibold uppercase tracking-wider text-gray-500'>
           Live Post Preview
@@ -55,7 +63,10 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
                 key={p}
                 Icon={config.icon}
                 iconClassName={`w-4 h-4 shrink-0 ${config.textColor}`}
-                onClick={() => onTabChange(p)}
+                onClick={() => {
+                  onTabChange(p);
+                  setUserSelectedAccountId(''); // Platform change hone par selection reset kar do
+                }}
                 className={`p-2 rounded-lg transition ${
                   previewTab === p
                     ? 'bg-white shadow-sm'
@@ -67,12 +78,41 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
         </div>
       </div>
 
+      {/* Account Switcher Bar (Visible when there are multiple accounts) */}
+      {platformAccounts.length > 1 && (
+        <div className='flex items-center justify-between gap-2 rounded-xl bg-white p-2.5 border border-gray-200 shadow-sm'>
+          <div className='flex items-center gap-2 text-xs font-medium text-gray-600'>
+            <LuUserCheck className='w-4 h-4 text-gray-400 shrink-0' />
+            <span>Select Account:</span>
+          </div>
+
+          <select
+            value={activeAccount.id}
+            onChange={(e) => setUserSelectedAccountId(e.target.value)}
+            className='text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20'
+          >
+            {platformAccounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.accountName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Single Preview Card for Selected Account */}
       <div className='bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-4'>
         {/* Author Header */}
         <div className='flex items-center gap-3'>
-          <Avatar name={accountName} src={avatarUrl} background='bg-blue-700' />
+          <Avatar
+            name={activeAccount.accountName}
+            src={activeAccount.avatarUrl}
+            background='bg-blue-700'
+          />
           <div>
-            <h4 className='text-sm font-bold text-gray-900'>{accountName}</h4>
+            <h4 className='text-sm font-bold text-gray-900'>
+              {activeAccount.accountName}
+            </h4>
             {currentPlatform?.handle && (
               <div className='flex items-center gap-1 text-xs text-gray-400'>
                 <span>{currentPlatform?.handle}</span>
@@ -112,7 +152,7 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
               ))}
             </div>
 
-            {/* Subtle item counter badge for multiple items */}
+            {/* Counter Badge */}
             {media.length > 1 && (
               <span className='absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white text-[10px] font-medium px-2 py-0.5 rounded-full pointer-events-none'>
                 {media.length} items

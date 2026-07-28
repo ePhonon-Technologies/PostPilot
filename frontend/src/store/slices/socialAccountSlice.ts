@@ -37,6 +37,7 @@ export const fetchSocialAccounts = createAsyncThunk<
     const response = await apiRequest.get<SocialAccount[]>('/social-accounts', {
       params: platform ? { platform } : undefined,
     });
+
     return response.data;
   } catch (err) {
     return rejectWithValue(

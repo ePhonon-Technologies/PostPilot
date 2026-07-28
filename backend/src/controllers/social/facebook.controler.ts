@@ -202,7 +202,6 @@ export async function getSocialProvider (req: AuthedRequest, res: Response) {
           createdAt: 'desc',
         },
       });
-      console.log('social connectionn',connections);
 
       return res.json(connections);
     } catch (error) {
